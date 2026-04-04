@@ -1,0 +1,139 @@
+name: Interview Pipeline Trigger
+
+on:
+  repository_dispatch:
+    types: [interview-triggered]
+  workflow_dispatch:
+
+jobs:
+  build-and-track:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout repo ──────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 2. Read + increment counter ───────────────────────────────────────
+      - name: Increment trigger counter
+        id: counter
+        run: |
+          # Read existing count (default 0 if file missing)
+          if [ -f counter.json ]; then
+            COUNT=$(jq '.count' counter.json)
+          else
+            COUNT=0
+          fi
+          NEW_COUNT=$((COUNT + 1))
+          TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          PAYLOAD='${{ toJson(github.event.client_payload) }}'
+
+          # Append to trigger log
+          if [ -f triggers.json ]; then
+            jq --argjson nc "$NEW_COUNT" --arg ts "$TIMESTAMP" \
+              '.count = $nc | .triggers += [{"id": $nc, "time": $ts}]' \
+              triggers.json > tmp.json && mv tmp.json triggers.json
+          else
+            echo "{\"count\": $NEW_COUNT, \"triggers\": [{\"id\": 1, \"time\": \"$TIMESTAMP\"}]}" > triggers.json
+          fi
+
+          # Also write simple counter file
+          echo "{\"count\": $NEW_COUNT, \"last\": \"$TIMESTAMP\"}" > counter.json
+
+          echo "count=$NEW_COUNT" >> $GITHUB_OUTPUT
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+
+      # ── 3. Generate tracker HTML page ─────────────────────────────────────
+      - name: Generate tracker page
+        run: |
+          COUNT=${{ steps.counter.outputs.count }}
+          TIMESTAMP="${{ steps.counter.outputs.timestamp }}"
+          cat > tracker.html << HTMLEOF
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Ritika Garg — Interview Pipeline Tracker</title>
+          <style>
+            :root {
+              --bg: #0A0E1A; --bg2: #0F1627; --border: #1E2D4E;
+              --accent: #3B82F6; --accent2: #60A5FA; --green: #22C55E;
+              --green2: #4ADE80; --amber: #F59E0B; --text: #E2E8F0;
+              --text2: #94A3B8; --text3: #64748B; --mono: 'Courier New', monospace;
+            }
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { background: var(--bg); color: var(--text); font-family: var(--mono);
+                   min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+                   justify-content: center; padding: 2rem; }
+            .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px;
+                    padding: 48px; max-width: 600px; width: 100%; text-align: center; }
+            .label { font-size: 12px; color: var(--accent); letter-spacing: 2px;
+                     text-transform: uppercase; margin-bottom: 16px; }
+            .count { font-size: 96px; font-weight: 900; color: var(--green2);
+                     line-height: 1; margin: 16px 0; text-shadow: 0 0 40px rgba(74,222,128,0.4); }
+            .count-label { font-size: 18px; color: var(--text2); margin-bottom: 32px; }
+            .last { font-size: 13px; color: var(--text3); border-top: 1px solid var(--border);
+                    padding-top: 20px; margin-top: 20px; }
+            .status-row { display: flex; align-items: center; justify-content: center;
+                           gap: 8px; margin-top: 12px; }
+            .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green2);
+                   animation: blink 2s ease-in-out infinite; }
+            @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+            .back { display: inline-block; margin-top: 32px; color: var(--accent2);
+                    text-decoration: none; font-size: 13px; }
+            .back:hover { color: var(--green2); }
+          </style>
+          </head>
+          <body>
+            <div class="card">
+              <div class="label">// interview pipeline tracker</div>
+              <div class="count">${COUNT}</div>
+              <div class="count-label">
+                interviewer${COUNT == 1 ? "" : "s"} triggered this pipeline
+              </div>
+              <div class="status-row">
+                <div class="dot"></div>
+                <span style="color:var(--green2);font-size:13px">Pipeline active — Docker image live on Docker Hub</span>
+              </div>
+              <div class="last">
+                Last triggered: ${TIMESTAMP}<br>
+                Built by GitHub Actions · Auto-deployed by Ritika Garg
+              </div>
+              <a class="back" href="https://ritikagarg0326.github.io">← Back to Resume</a>
+            </div>
+          </body>
+          </html>
+          HTMLEOF
+
+      # ── 4. Build & push Docker image to Docker Hub ────────────────────────
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/ritika-resume:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/ritika-resume:trigger-${{ steps.counter.outputs.count }}
+          labels: |
+            org.opencontainers.image.description=Ritika Garg Resume — Interview Trigger #${{ steps.counter.outputs.count }}
+
+      # ── 5. Commit updated tracker + counter back to repo ─────────────────
+      - name: Commit and push tracker page
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add counter.json triggers.json tracker.html
+          git commit -m "ci: interview trigger #${{ steps.counter.outputs.count }} — ${{ steps.counter.outputs.timestamp }}" || echo "nothing to commit"
+          git push

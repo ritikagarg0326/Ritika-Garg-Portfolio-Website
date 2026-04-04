@@ -1,0 +1,464 @@
+<!-- 
+  ═══════════════════════════════════════════════════════════════════════════
+  PASTE THIS SCRIPT BLOCK replacing the existing <script> tag in index.html
+  
+  SETUP REQUIRED:
+  Replace these 3 values before deploying:
+    YOUR_GITHUB_USERNAME  → your GitHub username (e.g. ritikagarg0326)
+    YOUR_REPO_NAME        → repo name (e.g. resume or ritikagarg0326.github.io)
+    YOUR_PAT_TOKEN        → GitHub Personal Access Token (see setup guide below)
+  ═══════════════════════════════════════════════════════════════════════════
+-->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// CONFIG — change these 3 values
+// ═══════════════════════════════════════════════════════════════════════════
+const GH_USER   = 'ritikagarg0326';          // your GitHub username
+const GH_REPO   = 'YOUR_REPO_NAME';          // repo where workflow lives
+const GH_TOKEN  = 'YOUR_FINE_GRAINED_PAT';  // GitHub PAT (read below)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── TERMINAL ENGINE ──────────────────────────────────────────────────────────
+const body   = document.getElementById('termBody');
+const input  = document.getElementById('termInput');
+const vizDiv = document.getElementById('pipelineViz');
+const pipRow = document.getElementById('pipelineRow');
+
+let busy = false;
+
+const BOOT = [
+  {cls:'t-dim', t:0,   txt:'Ubuntu 22.04.4 LTS — kernel 5.15.0-1052-aws'},
+  {cls:'t-dim', t:120, txt:'Last login: ' + new Date().toDateString() + ' on pts/0'},
+  {cls:'t-grn', t:240, txt:"Welcome, Interviewer. This terminal runs on Ritika's resume."},
+  {cls:'t-dim', t:360, txt:'Type  help  to see available commands.'},
+  {cls:'',      t:480, txt:''},
+];
+
+const COMMANDS = {
+  help: {
+    run: async () => {
+      await print([
+        {cls:'t-blu', txt:'Available commands:'},
+        {cls:'t-wht', txt:'  make interview    — run full CI/CD deployment pipeline'},
+        {cls:'t-wht', txt:'  whoami            — about Ritika'},
+        {cls:'t-wht', txt:'  cat skills.txt    — print technical skills'},
+        {cls:'t-wht', txt:'  kubectl get pods  — check project status'},
+        {cls:'t-wht', txt:'  git log           — view career history'},
+        {cls:'t-wht', txt:'  uptime            — availability & metrics'},
+        {cls:'t-wht', txt:'  contact           — get contact info'},
+        {cls:'t-wht', txt:'  clear             — clear terminal'},
+        {cls:'',      txt:''},
+      ]);
+    }
+  },
+  whoami: {
+    run: async () => {
+      await print([
+        {cls:'t-grn', txt:'ritika garg — DevOps Engineer'},
+        {cls:'t-wht', txt:''},
+        {cls:'t-wht', txt:'uid=1000(ritika) gid=1000(devops) groups=1000(devops),4(adm),'},
+        {cls:'t-dim', txt:'     27(sudo),110(aws),998(docker),999(kubernetes)'},
+        {cls:'t-wht', txt:''},
+        {cls:'t-blu', txt:'Location:     Lucknow, India (open to remote / relocation)'},
+        {cls:'t-blu', txt:'Current role: Software Engineer / DevOps @ Volkswagen'},
+        {cls:'t-blu', txt:'Experience:   3 years production DevOps'},
+        {cls:'t-blu', txt:'Stack:        AWS · Kubernetes · Terraform · Jenkins · GitOps'},
+        {cls:'t-wht', txt:''},
+        {cls:'t-dim', txt:'Targeting: DevOps Engineer | SRE | Platform Engineer | Cloud Engineer'},
+        {cls:'',      txt:''},
+      ]);
+    }
+  },
+  'cat skills.txt': {
+    run: async () => {
+      await print([
+        {cls:'t-amb', txt:'# /home/ritika/skills.txt'},
+        {cls:'t-wht', txt:''},
+        {cls:'t-grn', txt:'[cloud & iac]'},
+        {cls:'t-wht', txt:'  AWS: EC2, EKS, ECS, VPC, IAM, S3, CloudWatch, Secrets Manager'},
+        {cls:'t-wht', txt:'  IaC: Terraform (primary), CloudFormation (exposure)'},
+        {cls:'t-wht', txt:'  Also: Azure, GCP (exposure)'},
+        {cls:'t-grn', txt:'[ci/cd & gitops]'},
+        {cls:'t-wht', txt:'  Jenkins · GitHub Actions · GitLab CI/CD · ArgoCD · CodeBuild'},
+        {cls:'t-grn', txt:'[containers & kubernetes]'},
+        {cls:'t-wht', txt:'  Docker · Kubernetes · Helm · ECR · HPA · Blue-Green · Rolling'},
+        {cls:'t-grn', txt:'[monitoring]'},
+        {cls:'t-wht', txt:'  CloudWatch · Prometheus · Grafana · Container Insights'},
+        {cls:'t-grn', txt:'[scripting]'},
+        {cls:'t-wht', txt:'  Bash (daily) · Python · Linux production · Git · MySQL'},
+        {cls:'',      txt:''},
+      ]);
+    }
+  },
+  'kubectl get pods': {
+    run: async () => {
+      await print([
+        {cls:'t-dim', txt:'NAME                              READY   STATUS    RESTARTS   AGE'},
+        {cls:'t-grn', txt:'restaurantos-pro-7d9f6c-xk2mp     1/1     Running   0          2d'},
+        {cls:'t-grn', txt:'zomatoops-api-6b8dc4-9nqrs         1/1     Running   0          14d'},
+        {cls:'t-grn', txt:'zomatoops-mongo-5f7b9d-lp4qw       1/1     Running   0          14d'},
+        {cls:'t-grn', txt:'devops-task-mgr-3c6a8e-wm7tz       1/1     Running   0          47d'},
+        {cls:'t-amb', txt:'ritika-resume-pipeline-latest      1/1     Running   0          0s'},
+        {cls:'',      txt:''},
+        {cls:'t-dim', txt:'All systems operational. 99.9% uptime maintained.'},
+        {cls:'',      txt:''},
+      ]);
+    }
+  },
+  'git log': {
+    run: async () => {
+      await print([
+        {cls:'t-amb', txt:'commit a9f3b2c (HEAD -> main, origin/main)'},
+        {cls:'t-wht', txt:'Author: Ritika Garg <ritikagarg60814@gmail.com>'},
+        {cls:'t-wht', txt:'Date:   ' + new Date().toDateString()},
+        {cls:'t-wht', txt:''},
+        {cls:'t-wht', txt:'    feat: open to new DevOps/SRE opportunities'},
+        {cls:'t-wht', txt:''},
+        {cls:'t-amb', txt:'commit 7e2d1a4'},
+        {cls:'t-wht', txt:'Date:   Nov 2023'},
+        {cls:'t-wht', txt:'    job: Software Engineer/DevOps @ Volkswagen Group'},
+        {cls:'t-wht', txt:'    perf: -35% deploy time, -40% MTTR, 99.9% uptime'},
+        {cls:'t-wht', txt:''},
+        {cls:'t-amb', txt:'commit 3c8f5b0'},
+        {cls:'t-wht', txt:'Date:   Mar 2023'},
+        {cls:'t-wht', txt:'    job: DevOps Intern @ Nagarro'},
+        {cls:'t-wht', txt:'    feat: CI/CD automation, -30% QA manual effort'},
+        {cls:'t-wht', txt:''},
+        {cls:'t-amb', txt:'commit 1a2b3c4'},
+        {cls:'t-wht', txt:'Date:   Mar 2022'},
+        {cls:'t-wht', txt:'    chore: open source contributor, GSSoC'},
+        {cls:'',      txt:''},
+      ]);
+    }
+  },
+  uptime: {
+    run: async () => {
+      const now = new Date();
+      await print([
+        {cls:'t-grn', txt:' ' + now.toTimeString().slice(0,8) + ' up 3 years, 2 months — DevOps Engineer'},
+        {cls:'t-wht', txt:''},
+        {cls:'t-blu', txt:'METRIC                  VALUE       DELTA'},
+        {cls:'t-wht', txt:'Production uptime        99.9%       maintained'},
+        {cls:'t-wht', txt:'Deployment time          -35%        (4h → 156min)'},
+        {cls:'t-wht', txt:'MTTR                     -40%        (production)'},
+        {cls:'t-wht', txt:'Docker image size        -40%        (multi-stage)'},
+        {cls:'t-wht', txt:'Human-error incidents    -60%        (automation)'},
+        {cls:'t-wht', txt:'Security audits passed   3/3         (100% compliance)'},
+        {cls:'t-wht', txt:'Repeat incidents         -25% QoQ    (runbooks + RCA)'},
+        {cls:'',      txt:''},
+      ]);
+    }
+  },
+  contact: {
+    run: async () => {
+      await print([
+        {cls:'t-grn', txt:'# Contact Ritika Garg'},
+        {cls:'t-wht', txt:''},
+        {cls:'t-wht', txt:'Email:    ritikagarg60814@gmail.com'},
+        {cls:'t-wht', txt:'Phone:    +91 9335170375'},
+        {cls:'t-wht', txt:'LinkedIn: linkedin.com/in/ritika-garg-b39270194/'},
+        {cls:'t-wht', txt:'GitHub:   github.com/ritikagarg0326'},
+        {cls:'',      txt:''},
+        {cls:'t-dim', txt:'Response time: < 24h. Currently open to interviews.'},
+        {cls:'',      txt:''},
+      ]);
+    }
+  },
+  clear: {
+    run: async () => { body.innerHTML = ''; }
+  },
+  'make interview': {
+    run: async () => { await runPipeline(); }
+  },
+};
+
+// ── PRINT HELPER ─────────────────────────────────────────────────────────────
+async function print(lines, baseDelay=40) {
+  for(const l of lines) {
+    const span = document.createElement('span');
+    span.className = 'term-line ' + (l.cls || '');
+    span.textContent = l.txt;
+    body.appendChild(span);
+    body.scrollTop = body.scrollHeight;
+    await wait(l.t != null ? l.t : baseDelay);
+  }
+}
+function wait(ms) { return new Promise(r=>setTimeout(r,ms)); }
+
+function printPrompt() {
+  const row = document.createElement('span');
+  row.className = 'term-line';
+  row.innerHTML = '<span style="color:var(--green2)">ritika@prod</span><span style="color:var(--text3)">:</span><span style="color:var(--accent2)">~</span><span style="color:var(--text3)">$ </span>';
+  body.appendChild(row);
+  body.scrollTop = body.scrollHeight;
+}
+
+// ── GITHUB ACTIONS WEBHOOK TRIGGER ───────────────────────────────────────────
+async function triggerGitHubAction() {
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${GH_USER}/${GH_REPO}/dispatches`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GH_TOKEN}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          event_type: 'interview-triggered',
+          client_payload: {
+            triggered_at: new Date().toISOString(),
+            source: 'resume-terminal',
+          }
+        })
+      }
+    );
+    return res.status === 204; // GitHub returns 204 on success
+  } catch(e) {
+    console.warn('Webhook failed (CORS or network):', e);
+    return false;
+  }
+}
+
+// ── AUTO-OPEN EMAIL (mailto) ──────────────────────────────────────────────────
+function openEmailClient() {
+  const subject = encodeURIComponent('You are selected for your interview tomorrow 🎉');
+  const body    = encodeURIComponent(
+`Hi Ritika,
+
+Congratulations! We were thoroughly impressed by your resume and your CI/CD pipeline demo.
+
+We would like to invite you for an interview tomorrow. Please confirm your availability.
+
+Looking forward to connecting!
+
+Regards,
+Hiring Team`
+  );
+  const mailto = `mailto:ritikagarg60814@gmail.com?subject=${subject}&body=${body}`;
+  window.open(mailto, '_self');
+}
+
+// ── PIPELINE STAGES ───────────────────────────────────────────────────────────
+const STAGES_DEF = [
+  { id:'checkout', label:'Checkout',    icon:'↓' },
+  { id:'lint',     label:'Lint+Test',   icon:'✓' },
+  { id:'build',    label:'Docker Build',icon:'⬡' },
+  { id:'push',     label:'Push ECR',    icon:'↑' },
+  { id:'deploy',   label:'Deploy EKS',  icon:'▲' },
+];
+
+const STAGE_LOGS = {
+  checkout:[
+    {cls:'t-dim', t:0,   txt:'[github-actions] workflow: interview-pipeline.yml'},
+    {cls:'t-dim', t:150, txt:'[github-actions] Triggered by: workflow_dispatch'},
+    {cls:'t-blu', t:300, txt:'Cloning ritika-garg/resume-pipeline @ main...'},
+    {cls:'t-grn', t:700, txt:'Checkout complete  (0.8s)'},
+  ],
+  lint:[
+    {cls:'t-blu', t:0,   txt:'Running flake8 on src/...'},
+    {cls:'t-grn', t:400, txt:'  0 lint errors found'},
+    {cls:'t-blu', t:600, txt:'pytest --cov=src/ -q'},
+    {cls:'t-dim', t:900, txt:'  test_api.py ........ passed'},
+    {cls:'t-dim', t:1050,txt:'  test_deploy.py ..... passed'},
+    {cls:'t-grn', t:1200,txt:'  12 passed in 1.34s — coverage 91%'},
+  ],
+  build:[
+    {cls:'t-blu', t:0,   txt:'Building multi-stage Dockerfile...'},
+    {cls:'t-dim', t:300, txt:'  Step 1/8: FROM python:3.11-slim AS builder'},
+    {cls:'t-dim', t:500, txt:'  Step 4/8: RUN pip install --no-cache-dir -r requirements.txt'},
+    {cls:'t-dim', t:900, txt:'  Step 7/8: COPY --from=builder /app .'},
+    {cls:'t-amb', t:1300,txt:'  Image size: 142MB  (reduced 40% via multi-stage)'},
+    {cls:'t-grn', t:1600,txt:'  Successfully built sha256:a9f3b2c1'},
+    {cls:'t-grn', t:1700,txt:'  Tagged: ritika-garg:latest'},
+  ],
+  push:[
+    {cls:'t-blu', t:0,   txt:'Authenticating with Docker Hub...'},
+    {cls:'t-grn', t:500, txt:'  Login Succeeded'},
+    {cls:'t-blu', t:700, txt:'Pushing ritikagarg0326/ritika-resume:latest → Docker Hub'},
+    {cls:'t-dim', t:1000,txt:'  The push refers to repository [docker.io/ritikagarg0326/ritika-resume]'},
+    {cls:'t-dim', t:1300,txt:'  latest: digest: sha256:a9f3b2c1d4e5f6a7 size: 4821'},
+    {cls:'t-grn', t:1600,txt:'  Push complete ✓  →  hub.docker.com/r/ritikagarg0326/ritika-resume'},
+  ],
+  deploy:[
+    {cls:'t-blu', t:0,   txt:'ArgoCD sync triggered on push to main...'},
+    {cls:'t-dim', t:400, txt:'  Syncing app: ritika-resume-pipeline'},
+    {cls:'t-amb', t:700, txt:'  Applying Helm chart: values-prod.yaml'},
+    {cls:'t-dim', t:1000,txt:'  Waiting for rollout...'},
+    {cls:'t-dim', t:1300,txt:'  kubectl rollout status deploy/ritika-app'},
+    {cls:'t-dim', t:1600,txt:'  Waiting for deployment "ritika-app" rollout...'},
+    {cls:'t-dim', t:1900,txt:'  deployment "ritika-app" successfully rolled out'},
+    {cls:'t-grn', t:2200,txt:'  3/3 pods Running  ✓'},
+    {cls:'t-grn', t:2400,txt:'  Health check: GET /health → 200 OK in 98ms  ✓'},
+    {cls:'t-grn', t:2600,txt:'  ArgoCD status: Synced / Healthy'},
+  ],
+};
+
+function buildPipelineViz() {
+  pipRow.innerHTML = '';
+  STAGES_DEF.forEach((s, i) => {
+    const col = document.createElement('div');
+    col.className = 'pipe-stage';
+    col.innerHTML = `
+      <div class="pipe-box" id="pb-${s.id}">
+        <div class="pipe-icon">${s.icon}</div>
+        <div class="pipe-name">${s.label}</div>
+        <div class="pipe-status" id="ps-${s.id}">waiting</div>
+      </div>`;
+    pipRow.appendChild(col);
+    if(i < STAGES_DEF.length - 1) {
+      const conn = document.createElement('div');
+      conn.className = 'pipe-connector';
+      conn.id = 'pc-' + i;
+      pipRow.appendChild(conn);
+    }
+  });
+}
+
+// ── PIPELINE RUNNER ───────────────────────────────────────────────────────────
+async function runPipeline() {
+  await print([
+    {cls:'t-wht', t:0,   txt:''},
+    {cls:'t-grn', t:100, txt:'Initiating interview deployment pipeline...'},
+    {cls:'t-dim', t:200, txt:'Trigger: workflow_dispatch | Actor: interviewer'},
+    {cls:'t-wht', t:300, txt:''},
+  ]);
+
+  vizDiv.style.display = 'block';
+  buildPipelineViz();
+
+  // ── Fire webhook to GitHub Actions (non-blocking, runs in background) ──
+  triggerGitHubAction().then(ok => {
+    console.log(ok ? '✓ GitHub Actions triggered' : '✗ Webhook skipped (check token)');
+  });
+
+  for(let i=0; i<STAGES_DEF.length; i++) {
+    const s = STAGES_DEF[i];
+    const box = document.getElementById('pb-' + s.id);
+    const stat = document.getElementById('ps-' + s.id);
+
+    box.classList.add('active');
+    stat.textContent = 'running...';
+    stat.className = 'pipe-status running';
+
+    await print([{cls:'t-amb', t:0, txt:'[' + s.label.toUpperCase() + ']'}]);
+
+    const logs = STAGE_LOGS[s.id] || [];
+    let maxT = 0;
+    logs.forEach(l => {
+      maxT = Math.max(maxT, l.t);
+      setTimeout(() => {
+        const sp = document.createElement('span');
+        sp.className = 'term-line ' + l.cls;
+        sp.textContent = l.txt;
+        body.appendChild(sp);
+        body.scrollTop = body.scrollHeight;
+      }, l.t);
+    });
+
+    await wait(maxT + 600);
+
+    box.classList.remove('active');
+    box.classList.add('done');
+    stat.textContent = 'done';
+    stat.className = 'pipe-status done';
+    if(i < STAGES_DEF.length - 1) {
+      document.getElementById('pc-' + i).classList.add('done');
+    }
+    await wait(300);
+  }
+
+  // ── SUCCESS + EMAIL TRIGGER ────────────────────────────────────────────
+  await print([
+    {cls:'t-wht', t:100, txt:''},
+    {cls:'t-grn', t:200, txt:'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'},
+    {cls:'t-grn', t:300, txt:'  DEPLOYMENT SUCCESSFUL'},
+    {cls:'t-grn', t:400, txt:'  ritika-garg:latest is live on Docker Hub + AWS EKS'},
+    {cls:'t-grn', t:500, txt:'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'},
+    {cls:'t-wht', t:600, txt:''},
+    {cls:'t-cyn', t:700, txt:'📊 Pipeline tracker updated → github.com/' + GH_USER + '/' + GH_REPO + '/blob/main/tracker.html'},
+    {cls:'t-wht', t:800, txt:''},
+    {cls:'t-amb', t:900, txt:'Opening your email client to notify Ritika...'},
+    {cls:'t-dim', t:1000,txt:'  exec: mailto:ritikagarg60814@gmail.com'},
+  ]);
+
+  // Wait 1.2s then open email
+  await wait(1400);
+  openEmailClient();
+
+  await print([
+    {cls:'t-grn', t:200, txt:'✓ Email client opened — send it to make Ritika\'s day!'},
+    {cls:'t-wht', t:300, txt:''},
+    {cls:'t-cyn', t:400, txt:'Impressed? Hire the engineer who built this pipeline.'},
+    {cls:'t-wht', t:500, txt:'→ ritikagarg60814@gmail.com'},
+    {cls:'t-wht', t:600, txt:'→ +91 9335170375'},
+    {cls:'',      t:700, txt:''},
+  ]);
+}
+
+// ── INPUT HANDLER ─────────────────────────────────────────────────────────────
+async function handleCommand(raw) {
+  const cmd = raw.trim().toLowerCase();
+  printPrompt();
+  const last = body.lastElementChild;
+  last.innerHTML += raw;
+  body.scrollTop = body.scrollHeight;
+  await wait(60);
+
+  if(!cmd) return;
+
+  const handler = COMMANDS[cmd];
+  if(handler) {
+    await handler.run();
+  } else {
+    await print([
+      {cls:'t-red', t:0,  txt:'bash: ' + raw + ': command not found'},
+      {cls:'t-dim', t:80, txt:'Type  help  to see available commands.'},
+      {cls:'',      t:80, txt:''},
+    ]);
+  }
+}
+
+input.addEventListener('keydown', async (e) => {
+  if(e.key === 'Enter' && !busy) {
+    busy = true;
+    const val = input.value;
+    input.value = '';
+    input.disabled = true;
+    await handleCommand(val);
+    input.disabled = false;
+    input.focus();
+    busy = false;
+  }
+});
+
+// ── BOOT SEQUENCE ─────────────────────────────────────────────────────────────
+(async () => {
+  await wait(400);
+  for(const l of BOOT) {
+    if(l.t) await wait(l.t);
+    const sp = document.createElement('span');
+    sp.className = 'term-line ' + (l.cls||'');
+    sp.textContent = l.txt;
+    body.appendChild(sp);
+    body.scrollTop = body.scrollHeight;
+  }
+  printPrompt();
+  input.focus();
+})();
+
+// ── HERO BUTTON ───────────────────────────────────────────────────────────────
+document.querySelector('a[href="#terminal-section"]').addEventListener('click', async (e) => {
+  await wait(600);
+  if(!busy) {
+    busy = true;
+    input.disabled = true;
+    await handleCommand('make interview');
+    input.disabled = false;
+    input.focus();
+    busy = false;
+  }
+});
+</script>
